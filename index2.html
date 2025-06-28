@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Group Chat with Private Messaging</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    #messages { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; }
+    li { padding: 6px; border-bottom: 1px solid #ccc; }
+    #typing, #notifications { color: gray; }
+  </style>
+</head>
+<body>
+  <h2>Group Chat App</h2>
+
+  <div>
+    <label>Username:</label>
+    <input id="username" placeholder="Enter your name" />
+    <label>Room:</label>
+    <input id="room" placeholder="Room name" />
+    <button onclick="joinRoom()">Join Room</button>
+  </div>
+
+  <div id="chatArea" style="display:none">
+    <p id="notifications"></p>
+    <ul id="messages"></ul>
+
+    <input id="messageInput" placeholder="Type message..." />
+    <button onclick="sendMessage()">Send</button>
+
+    <h4>Private Message</h4>
+    <select id="userList"></select>
+    <input id="privateInput" placeholder="Private message..." />
+    <button onclick="sendPrivateMessage()">Send Private</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let username = '';
+    let room = '';
+
+    function joinRoom() {
+      username = document.getElementById('username').value;
+      room = document.getElementById('room').value;
+      if (!username || !room) return alert('Fill in username and room');
+
+      socket.emit('join room', { username, room });
+      document.getElementById('chatArea').style.display = 'block';
+
+      socket.emit('get users');
+    }
+
+    function sendMessage() {
+      const msg = document.getElementById('messageInput').value;
+      if (msg.trim() !== '') {
+        socket.emit('chat message', msg);
+        document.getElementById('messageInput').value = '';
+      }
+    }
+
+    function sendPrivateMessage() {
+      const select = document.getElementById('userList');
+      const toSocketId = select.value;
+      const message = document.getElementById('privateInput').value;
+      if (toSocketId && message.trim() !== '') {
+        socket.emit('private message', { toSocketId, message });
+        document.getElementById('privateInput').value = '';
+      }
+    }
+
+    socket.on('chat message', (data) => {
+      const li = document.createElement('li');
+      li.textContent = `${data.sender}: ${data.text}`;
+      document.getElementById('messages').appendChild(li);
+    });
+
+    socket.on('user joined', (msg) => {
+      document.getElementById('notifications').textContent = msg;
+      socket.emit('get users'); // refresh user list
+    });
+
+    socket.on('user left', (msg) => {
+      document.getElementById('notifications').textContent = msg;
+      socket.emit('get users'); // refresh user list
+    });
+
+    socket.on('private message', (data) => {
+      alert(`Private from ${data.from}: ${data.text}`);
+    });
+
+    socket.on('user list', (userList) => {
+      const select = document.getElementById('userList');
+      select.innerHTML = '';
+      userList.forEach(user => {
+        if (user.username !== username) {
+          const opt = document.createElement('option');
+          opt.value = user.socketId;
+          opt.textContent = `${user.username} (${user.room})`;
+          select.appendChild(opt);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
