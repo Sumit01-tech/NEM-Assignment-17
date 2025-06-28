@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.IO Chat</title>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 8px 12px; border-bottom: 1px solid #ccc; }
+    input { padding: 10px; width: 80%; }
+    button { padding: 10px; }
+    #typing { color: gray; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h2>Real-time Chat with Typing Indicator</h2>
+  <ul id="messages"></ul>
+  <p id="typing"></p>
+  <input id="messageInput" autocomplete="off" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const input = document.getElementById('messageInput');
+    const messages = document.getElementById('messages');
+    const typingIndicator = document.getElementById('typing');
+
+    let typingTimeout;
+
+    // Send chat message
+    function sendMessage() {
+      const msg = input.value;
+      if (msg.trim() !== '') {
+        socket.emit('chat message', msg);
+        input.value = '';
+        socket.emit('stop typing'); // Clear typing status on send
+      }
+    }
+
+    // Handle typing logic
+    input.addEventListener('input', () => {
+      socket.emit('typing');
+
+      // Reset timer on each keystroke
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit('stop typing');
+      }, 1000); // 1 second pause = stop typing
+    });
+
+    // Receive message
+    socket.on('chat message', (msg) => {
+      const li = document.createElement('li');
+      li.textContent = msg;
+      messages.appendChild(li);
+    });
+
+    // Show typing indicator
+    socket.on('typing', (message) => {
+      typingIndicator.textContent = message;
+    });
+
+    // Clear typing indicator
+    socket.on('stop typing', () => {
+      typingIndicator.textContent = '';
+    });
+  </script>
+</body>
+</html>
